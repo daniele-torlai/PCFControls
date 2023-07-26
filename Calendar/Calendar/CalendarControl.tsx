@@ -533,11 +533,16 @@ async function getEvents(pcfContext: ComponentFramework.Context<IInputs>, resour
             var end = record.getValue(keys.end);                        
 
             if (!name || !start || !end) continue;
+            
+            var nowStart = new Date(start as number);
+            var utcStart = new Date(nowStart.getTime() + nowStart.getTimezoneOffset() * 60000);
+            var nowEnd = new Date(end as number);
+            var utcEnd = new Date(nowEnd.getTime() + nowEnd.getTimezoneOffset() * 60000);
 
             let newEvent: IEvent = {
                 id: keys.id ? record.getValue(keys.id) as string || recordId : recordId,
-                start: new Date(start as number),
-                end: new Date(end as number),
+                start: pcfContext.parameters.timeZoneIndependent?.raw === "1" ? utcStart : nowStart,
+                end: pcfContext.parameters.timeZoneIndependent?.raw === "1" ? utcEnd : nowEnd,
                 title: name
             };
 

@@ -50,8 +50,11 @@ export class Calendar implements ComponentFramework.StandardControl<IInputs, IOu
 
 		//make sure to initialize your private variables that will be return in the getOutputs function.
 		// If any of them are undefined then the onChange event for the control in a canvas app will not fire.
-		this._currentRangeStart = new Date();
-		this._currentRangeEnd = new Date();
+		var now = new Date();
+		var utc = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+
+		this._currentRangeStart = context.parameters.timeZoneIndependent?.raw === "1" ? utc : now;
+		this._currentRangeEnd = context.parameters.timeZoneIndependent?.raw === "1" ? utc : now;;
 		this._currentCalendarView = context.parameters.calendarView?.raw || "month";	
 		this._selectedSlotResourceId = '';
 		this._selectedRecordId = '';
