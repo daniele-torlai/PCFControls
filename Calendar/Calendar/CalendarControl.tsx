@@ -77,7 +77,8 @@ React.useEffect(()=>{
         //console.log(`asyncCalendarData: dataSet.sortedRecordIds.length: ${dataSet.sortedRecordIds.length}`)
         if (dataSet.loading === false)
         {
-            setCalendarData(await getCalendarData(props.pcfContext, keys));            
+            let initRange = getCurrentRange(calendarDate, props.pcfContext.parameters.calendarView?.raw ?? 'day', props.pcfContext.parameters.calendarLanguage?.raw ?? 'en');
+            setCalendarData(await getCalendarData(props.pcfContext, initRange, keys));            
         }
     }        
     asyncCalendarData();
@@ -88,8 +89,11 @@ React.useEffect(()=>{
 React.useEffect(()=>{
     //this appears to be firing every time a render happens...
 
-    if (props.pcfContext.parameters.calendarDate?.raw?.getTime() !== 0 
-    && !moment(calendarDate).isSame(props.pcfContext.parameters.calendarDate.raw)){
+    if (
+        props.pcfContext.parameters.calendarDate?.raw?.getTime() && 
+        props.pcfContext.parameters.calendarDate?.raw?.getTime()!== 0 
+        && !moment(calendarDate).isSame(props.pcfContext.parameters.calendarDate.raw)
+    ){
         setCalendarDate(props.pcfContext.parameters.calendarDate.raw as Date)
     }    
 },[props.pcfContext.parameters.calendarDate?.raw?.getTime()])
@@ -266,6 +270,10 @@ const _onCalendarChange = () =>
     let ref = calendarRef.current as any;
     let rangeDates = getCurrentRange(calendarDate, ref.props.view, ref.props.culture)        
     props.onCalendarChange(ref.props.date, rangeDates.start, rangeDates.end, ref.props.view);
+
+    getCalendarData(props.pcfContext, rangeDates, calendarData.keys).then((result) =>{
+        setCalendarData(result);
+    })
 }
 
 const eventPropsGetter = (event: IEvent) => {
@@ -435,17 +443,17 @@ function getFieldName(dataSet: ComponentFramework.PropertyTypes.DataSet , fieldN
 }
 
 //returns all the calendar data including the events and resources
-async function getCalendarData(pcfContext: ComponentFramework.Context<IInputs>, keys: any) : Promise<{resources: any[] | undefined, events: Event[], keys: any}>
+async function getCalendarData(pcfContext: ComponentFramework.Context<IInputs>, range: {start:Date, end:Date}, keys: any) : Promise<{resources: any[] | undefined, events: Event[], keys: any}>
 {
-    let resourceData = await getResources(pcfContext, keys);
-    let eventData = await getEvents(pcfContext, resourceData, keys);
+    let resourceData = await getResources(pcfContext, range, keys);
+    let eventData = await getEvents(pcfContext, resourceData, range, keys);
 
     //console.log(`getCalendarData: eventData.length: ${eventData?.length}`);
     return {resources: resourceData, events: eventData, keys: keys}
 }
 
 //retrieves all the resources from the datasource
-async function getResources(pcfContext: ComponentFramework.Context<IInputs>, keys: any): Promise<any[] | undefined> {
+async function getResources(pcfContext: ComponentFramework.Context<IInputs>, range: {start:Date, end:Date}, keys: any): Promise<any[] | undefined> {
     let dataSet = pcfContext.parameters.calendarDataSet;
     
     let resources: any[] = [];
@@ -457,6 +465,12 @@ async function getResources(pcfContext: ComponentFramework.Context<IInputs>, key
     for (let i = 0; i < totalRecordCount; i++) {
         let recordId = dataSet.sortedRecordIds[i];
         let record = dataSet.records[recordId] as DataSetInterfaces.EntityRecord;
+
+        var recStart = new Date(record.getValue(keys.start) as string);
+        var recEnd = new Date(record.getValue(keys.end) as string);
+
+        if(!(recStart.getTime() <= range.end.getTime() && recEnd.getTime() >= range.start.getTime()))
+            continue;
 
         let resourceId = "";
         let resourceName = "";
@@ -479,6 +493,7 @@ async function getResources(pcfContext: ComponentFramework.Context<IInputs>, key
         }
         
         if (!resourceId) continue;
+        
 
         resources.push({id: resourceId, title: resourceName, etn: resourceEtn});
     }
@@ -519,7 +534,7 @@ async function getAllResources(pcfContext: ComponentFramework.Context<IInputs>, 
 }
 
 //retrieves all the events from the datasource
-async function getEvents(pcfContext: ComponentFramework.Context<IInputs>, resources: any[] | undefined, keys: any): Promise<Event[]> {
+async function getEvents(pcfContext: ComponentFramework.Context<IInputs>, resources: any[] | undefined, range: {start:Date, end:Date}, keys: any): Promise<Event[]> {
         let dataSet = pcfContext.parameters.calendarDataSet;
         let totalRecordCount = dataSet.sortedRecordIds.length;
 
@@ -528,6 +543,12 @@ async function getEvents(pcfContext: ComponentFramework.Context<IInputs>, resour
 			var recordId = dataSet.sortedRecordIds[i];
             var record = dataSet.records[recordId] as DataSetInterfaces.EntityRecord;
         
+            var recStart = new Date(record.getValue(keys.start) as string);
+            var recEnd = new Date(record.getValue(keys.end) as string);
+
+            if(!(recStart.getTime() <= range.end.getTime() && recEnd.getTime() >= range.start.getTime()))
+                continue;
+
             var name = record.getValue(keys.name) as string;
 			var start = record.getValue(keys.start);
             var end = record.getValue(keys.end);                        
